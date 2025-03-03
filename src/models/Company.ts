@@ -37,7 +37,7 @@ Company.createCompany = async (req: any, result: any) => {
     const uploadfile = req.files.profile_image; // ตรวจสอบว่าไฟล์ถูกส่งมา
 
     // อัพโหลดไฟล์และได้ path ของไฟล์ที่อัพโหลด
-    const imageUrl = await uploadFile(uploadfile, "company");
+    const imageUrl = await uploadFile(uploadfile, TABLE);
 
     // เพิ่มข้อมูลบริษัทใหม่
     const [newCompany] = await db("company")
