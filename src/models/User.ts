@@ -5,6 +5,8 @@ import knexConfig from "../config/knexfile";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 import { decryptAES256 } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 const url = process.env.API_UPLOAD;
 
 const db = knex(knexConfig.development);
@@ -29,7 +31,7 @@ User.createUser = async (req: any, result: any) => {
       .insert({
         name,
         email,
-        password : hashedPassword,
+        password: hashedPassword,
         role,
         image_url: imageUrl,
       })
@@ -339,4 +341,148 @@ User.deleteUserById = async (req: any, result: any) => {
     throw new Error(error);
   }
 };
+
+User.login = async (req: any, result: any) => {
+  try {
+    const { password } = req.headers;
+    const { email } = req.body;
+
+    if (!email || !password) {
+      return result(null, {
+        success: false,
+        code: 400,
+        message: "กรุณากรอกอีเมลและรหัสผ่าน",
+        data: null,
+      });
+    }
+
+    // ค้นหาผู้ใช้จากฐานข้อมูล
+    const user = await db("users").where({ email }).first();
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 401,
+        message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
+        data: null,
+      });
+    }
+
+    // ถอดรหัส AES-256 ของรหัสผ่านที่รับมา
+    const decryptedPassword = decryptAES256(password);
+
+    // ตรวจสอบรหัสผ่านกับ hash ที่เก็บในฐานข้อมูล
+    const isMatch = await bcrypt.compare(decryptedPassword, user.password);
+    if (!isMatch) {
+      return result(null, {
+        success: false,
+        code: 401,
+        message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
+        data: null,
+      });
+    }
+
+    // ดึงข้อมูลบริษัทที่ผู้ใช้มีสิทธิ์เข้าถึง
+    const companies = await db("user_company as uc")
+      .join("company as c", "uc.company_id", "=", "c.id")
+      .where("uc.user_id", user.id)
+      .select(
+        "c.id",
+        "c.name",
+        "c.address",
+        "c.sub_district",
+        "c.district",
+        "c.province",
+        "c.postcode",
+        "c.phone",
+        "c.email",
+        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+      );
+
+    // สร้าง access token
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET_KEY!,
+      { expiresIn: "24h" }
+    );
+
+    // ส่งข้อมูลกลับไปยัง client
+    result(null, {
+      success: true,
+      code: 200,
+      message: "ลงชื่อเข้าใช้สำเร็จ",
+      data: {
+        user: {
+          ...(() => {
+            const { password, created_at, updated_at, ...rest } = user; // 🔹 ลบ password
+            return rest;
+          })(),
+          image_url: url + user.image_url,
+        },
+        companies,
+        access_token: token,
+      },
+    });
+  } catch (error: any) {
+    result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
+    throw new Error(error);
+  }
+};
+
+User.forgotPassword = async (req: any, result: any) => {
+  try {
+    const { password } = req.headers;
+    const { email } = req.body;
+
+    result(null, true);
+    // }
+  } catch (error: any) {
+    result(error, null);
+    throw new Error(error);
+  }
+};
+
+User.resetPassword = async (req: any, result: any) => {
+  try {
+    const { password } = req.headers;
+    const { email } = req.body;
+
+    result(null, true);
+    // }
+  } catch (error: any) {
+    result(error, null);
+    throw new Error(error);
+  }
+};
+
+User.me = async (req: any, result: any) => {
+  try {
+    const { password } = req.headers;
+    const { email } = req.body;
+
+    result(null, true);
+    // }
+  } catch (error: any) {
+    result(error, null);
+    throw new Error(error);
+  }
+};
+
+User.logout = async (req: any, result: any) => {
+  try {
+    const { password } = req.headers;
+    const { email } = req.body;
+
+    result(null, true);
+    // }
+  } catch (error: any) {
+    result(error, null);
+    throw new Error(error);
+  }
+};
+
 export default User;

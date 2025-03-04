@@ -11,10 +11,10 @@ import {
 
 const router = Router();
 
-router.post("/", createCompany);
-router.get("/", getCompany);
-router.get("/:id", getCompanyById);
-router.put("/:id", updateCompanyById);
-router.delete("/:id", deleteCompanyById);
+router.post("/company", createCompany);
+router.get("/company", getCompany);
+router.get("/company/:id", getCompanyById);
+router.put("/company/:id", updateCompanyById);
+router.delete("/company/:id", deleteCompanyById);
 
 export default router;
