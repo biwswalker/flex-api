@@ -13,7 +13,7 @@ export const createUser = (req: any, res: any) => {
 export const getUser = (req: any, res: any) => {
   User.getUser(req, (err: any, data: any) => {
     if (err) {
-      res.status(500).send(err); // ส่ง error response กลับไป
+      res.status(500).send(data); // ส่ง error response กลับไป
     } else {
       res.status(200).send(data); // ส่งข้อมูลที่สำเร็จกลับไป
     }

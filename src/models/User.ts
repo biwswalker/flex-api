@@ -64,70 +64,56 @@ User.createUser = async (req: any, result: any) => {
 
 User.getUser = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { email, role, company_ids, name } = req.query;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // ตรวจสอบสิทธิ์การเข้าถึง API
+    if (!["OWNER", "ADMIN"].includes(role)) {
+      return result(null, {
+        success: false,
+        code: 403,
+        message: "ท่านไม่มีสิทธิการเข้าถึง",
+        data: null,
+      });
+    }
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    // สร้าง query พื้นฐาน
+    let query = db("users").select(
+      "users.id as user_id",
+      "users.name",
+      "users.email",
+      "users.role",
+      db.raw(`? || users.image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+      "users.created_at",
+      "users.updated_at"
+    );
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // กรองข้อมูลตาม request params
+    let companies = JSON.parse(company_ids);
+    if (companies && Array.isArray(companies)) {
+      query.whereExists(function () {
+        this.select("user_company.user_id")
+          .from("user_company")
+          .whereRaw("user_company.user_id = users.id")
+          .whereIn("user_company.company_id", companies);
+      });
+    }
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
+    // ดึงข้อมูลจากฐานข้อมูล
+    const users = await query;
 
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "รายการผู้ใช้สำเร็จ",
+      data: users,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
