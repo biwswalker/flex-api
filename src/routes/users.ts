@@ -12,6 +12,7 @@ import {
   me,
   logout,
 } from "../controllers/usersController";
+import { verifyToken } from "../middlewares/verifyToken"; // เรียกใช้งาน middleware
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.delete("/users/:id", deleteUserById);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
-router.post("/me", me);
+router.get("/me", verifyToken, me);
 router.post("/logout", logout);
 
 export default router;

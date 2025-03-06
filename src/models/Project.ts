@@ -1,5 +1,5 @@
-const Company = function () {};
-const TABLE = "company";
+const Project = function () {};
+const TABLE = "project";
 import knex from "knex";
 import knexConfig from "../config/knexfile";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
@@ -7,7 +7,7 @@ const url = process.env.API_UPLOAD;
 const db = knex(knexConfig.development);
 
 // Model
-Company.createCompany = async (req: any, result: any) => {
+Project.createProject = async (req: any, result: any) => {
   try {
     const {
       name,
@@ -21,13 +21,13 @@ Company.createCompany = async (req: any, result: any) => {
     } = req.body;
 
     // ตรวจสอบชื่อบริษัทว่ามีอยู่ในระบบหรือไม่
-    const existingCompany = await db("company").where("name", name).first();
-    if (existingCompany) {
+    const existingProject = await db("project").where("name", name).first();
+    if (existingProject) {
       // ส่งข้อความ error กลับไปในรูปแบบ response
       return result(
         {
           status: false,
-          message: "Company name already exists",
+          message: "Project name already exists",
           data: [],
         },
         null
@@ -40,7 +40,7 @@ Company.createCompany = async (req: any, result: any) => {
     const imageUrl = await uploadFile(uploadfile, TABLE);
 
     // เพิ่มข้อมูลบริษัทใหม่
-    const [newCompany] = await db("company")
+    const [newProject] = await db("project")
       .insert({
         name,
         address,
@@ -60,8 +60,8 @@ Company.createCompany = async (req: any, result: any) => {
       code: 200,
       message: "ผู้ใช้ลงทะเบียนสำเร็จ",
       data: {
-        ...newCompany,
-        image_url: url + newCompany.image_url,
+        ...newProject,
+        image_url: url + newProject.image_url,
       },
     });
   } catch (error: any) {
@@ -75,7 +75,7 @@ Company.createCompany = async (req: any, result: any) => {
   }
 };
 
-Company.getCompany = async (req: any, result: any) => {
+Project.getProject = async (req: any, result: any) => {
   try {
     const { app_id } = req.headers;
     const { text_search } = req.query;
@@ -150,13 +150,13 @@ Company.getCompany = async (req: any, result: any) => {
   }
 };
 
-Company.getCompanyById = async (req: any, result: any) => {
+Project.getProjectById = async (req: any, result: any) => {
   try {
     const { id } = req.params;
-    const company = await db("company").where("id", id).first();
+    const project = await db("project").where("id", id).first();
 
     // หากไม่พบข้อมูลบริษัท
-    if (!company) {
+    if (!project) {
       return result(
         {
           success: false,
@@ -174,8 +174,8 @@ Company.getCompanyById = async (req: any, result: any) => {
       code: 200,
       message: "ค้นหาบริษัทสำเร็จ",
       data: {
-        ...company,
-        image_url: url + company.image_url,
+        ...project,
+        image_url: url + project.image_url,
       },
     });
   } catch (error: any) {
@@ -192,7 +192,7 @@ Company.getCompanyById = async (req: any, result: any) => {
   }
 };
 
-Company.updateCompanyById = async (req: any, result: any) => {
+Project.updateProjectById = async (req: any, result: any) => {
   try {
     const { app_id } = req.headers;
     const { text_search } = req.query;
@@ -267,7 +267,7 @@ Company.updateCompanyById = async (req: any, result: any) => {
   }
 };
 
-Company.deleteCompanyById = async (req: any, result: any) => {
+Project.deleteProjectById = async (req: any, result: any) => {
   try {
     const { app_id } = req.headers;
     const { text_search } = req.query;
@@ -342,4 +342,4 @@ Company.deleteCompanyById = async (req: any, result: any) => {
   }
 };
 
-export default Company;
+export default Project;
