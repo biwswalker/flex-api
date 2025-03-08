@@ -126,68 +126,54 @@ User.getUser = async (req: any, result: any) => {
 
 User.getUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // ดึงข้อมูลผู้ใช้จากฐานข้อมูล
+    const user = await db("users")
+      .select(
+        "id",
+        "name",
+        "email",
+        "role",
+        db.raw(`? || image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+        "created_at",
+        "updated_at"
+      )
+      .where("id", id)
+      .first();
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // ดึงข้อมูลบริษัทที่เกี่ยวข้อง
+    const companies = await db("user_company as uc")
+      .join("company as c", "uc.company_id", "c.id")
+      .where("uc.user_id", id)
+      .select(
+        "c.id",
+        "c.name",
+        "c.address",
+        "c.sub_district",
+        "c.district",
+        "c.province",
+        "c.postcode",
+        "c.phone",
+        "c.email",
+        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+      );
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ดึงข้อมูลผู้ใช้สำเร็จ",
+      data: { user, companies },
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
@@ -201,68 +187,41 @@ User.getUserById = async (req: any, result: any) => {
 
 User.updateUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
+    const { name, email, role, company_id } = req.body;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // อัพเดทข้อมูลผู้ใช้ในฐานข้อมูล
+    const [updatedUser] = await db("users")
+      .where("id", id)
+      .update({
+        name,
+        email,
+        role,
+      })
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!updatedUser) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // อัพเดทข้อมูลบริษัทที่เกี่ยวข้อง
+    await db("user_company")
+      .where("user_id", id)
+      .update({
+        company_id,
+      });
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "อัพเดทข้อมูลผู้ใช้สำเร็จ",
+      data: updatedUser,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
@@ -276,68 +235,34 @@ User.updateUserById = async (req: any, result: any) => {
 
 User.deleteUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // ลบข้อมูลผู้ใช้จากฐานข้อมูล
+    const deletedUser = await db("users")
+      .where("id", id)
+      .del()
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!deletedUser) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // ลบข้อมูลบริษัทที่เกี่ยวข้อง
+    await db("user_company")
+      .where("user_id", id)
+      .del();
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ลบข้อมูลผู้ใช้สำเร็จ",
+      data: deletedUser,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,

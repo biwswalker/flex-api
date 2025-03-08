@@ -9,59 +9,25 @@ const db = knex(knexConfig.development);
 // Model
 Project.createProject = async (req: any, result: any) => {
   try {
-    const {
-      name,
-      address,
-      sub_district,
-      district,
-      province,
-      postcode,
-      phone,
-      email,
-    } = req.body;
+    const { company_id, name, description, budget, status } = req.body;
 
-    // ตรวจสอบชื่อบริษัทว่ามีอยู่ในระบบหรือไม่
-    const existingProject = await db("project").where("name", name).first();
-    if (existingProject) {
-      // ส่งข้อความ error กลับไปในรูปแบบ response
-      return result(
-        {
-          status: false,
-          message: "Project name already exists",
-          data: [],
-        },
-        null
-      );
-    }
-
-    const uploadfile = req.files.profile_image; // ตรวจสอบว่าไฟล์ถูกส่งมา
-
-    // อัพโหลดไฟล์และได้ path ของไฟล์ที่อัพโหลด
-    const imageUrl = await uploadFile(uploadfile, TABLE);
-
-    // เพิ่มข้อมูลบริษัทใหม่
-    const [newProject] = await db("project")
+    const [newProject] = await db(TABLE)
       .insert({
+        company_id,
         name,
-        address,
-        sub_district,
-        district,
-        province,
-        postcode,
-        phone,
-        email,
-        image_url: imageUrl, // URL ของภาพ
+        description,
+        budget,
+        status,
       })
       .returning("*");
 
-    // ส่งข้อมูลบริษัทที่ถูกเพิ่มไปยัง Controller
+    // ส่งข้อมูลโปรเจคที่ถูกเพิ่มไปยัง Controller
     result(null, {
       success: true,
       code: 200,
-      message: "ผู้ใช้ลงทะเบียนสำเร็จ",
+      message: "สร้างโปรเจคสำเร็จ",
       data: {
         ...newProject,
-        image_url: url + newProject.image_url,
       },
     });
   } catch (error: any) {
@@ -77,68 +43,47 @@ Project.createProject = async (req: any, result: any) => {
 
 Project.getProject = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { text_search, page = 1, size = 10 } = req.query;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    let query = db(TABLE).select(
+      "id",
+      "company_id",
+      "name",
+      "description",
+      "budget",
+      "status",
+      db.raw(`? || image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+      "created_at",
+      "updated_at"
+    );
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (text_search) {
+      query.where(function () {
+        this.where("name", "like", `%${text_search}%`)
+          .orWhere("description", "like", `%${text_search}%`);
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    const page_start = (page - 1) * size;
+    query.offset(page_start).limit(size);
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
+    const projects = await query;
 
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
+    if (projects.length === 0) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลโปรเจค",
+        data: null,
+      });
+    }
 
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ค้นหาโปรเจคสำเร็จ",
+      data: projects,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
@@ -153,26 +98,26 @@ Project.getProject = async (req: any, result: any) => {
 Project.getProjectById = async (req: any, result: any) => {
   try {
     const { id } = req.params;
-    const project = await db("project").where("id", id).first();
+    const project = await db(TABLE).where("id", id).first();
 
-    // หากไม่พบข้อมูลบริษัท
+    // หากไม่พบข้อมูลโปรเจค
     if (!project) {
       return result(
         {
           success: false,
           code: 404,
-          message: "ไม่พบข้อมูลบริษัทในระบบ",
+          message: "ไม่พบข้อมูลโปรเจคในระบบ",
           data: null,
         },
         null
       );
     }
 
-    // ส่งข้อมูลบริษัทที่พบ
+    // ส่งข้อมูลโปรเจคที่พบ
     return result(null, {
       success: true,
       code: 200,
-      message: "ค้นหาบริษัทสำเร็จ",
+      message: "ค้นหาโปรเจคสำเร็จ",
       data: {
         ...project,
         image_url: url + project.image_url,
@@ -194,68 +139,46 @@ Project.getProjectById = async (req: any, result: any) => {
 
 Project.updateProjectById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
+    const { company_id, name, description, budget, status } = req.body;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    const uploadfile = req.files?.profile_image;
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    let imageUrl;
+    if (uploadfile) {
+      imageUrl = await uploadFile(uploadfile, TABLE);
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    const [updatedProject] = await db(TABLE)
+      .where("id", id)
+      .update({
+        company_id,
+        name,
+        description,
+        budget,
+        status,
+        ...(imageUrl && { image_url: imageUrl }),
+      })
+      .returning("*");
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
+    if (!updatedProject) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลโปรเจค",
+        data: null,
+      });
+    }
 
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "อัพเดทข้อมูลโปรเจคสำเร็จ",
+      data: {
+        ...updatedProject,
+        image_url: url + updatedProject.image_url,
+      },
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
@@ -269,68 +192,28 @@ Project.updateProjectById = async (req: any, result: any) => {
 
 Project.deleteProjectById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    const [deletedProject] = await db(TABLE)
+      .where("id", id)
+      .del()
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!deletedProject) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลโปรเจค",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
-
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ลบข้อมูลโปรเจคสำเร็จ",
+      data: deletedProject,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
