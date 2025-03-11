@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "build:docker": "docker buildx build --platform linux/amd64 -t biwswalker/flex-api:latest --push ."
   },
   "repository": {
     "type": "git",
