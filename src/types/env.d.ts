@@ -13,5 +13,7 @@ declare namespace NodeJS {
     AES_SECRET_KEY: string;
     AES_SECRET_IV: string;
     BCRYPT_SALT_ROUNDS: string;
+    EMAIL_USER: string;
+    EMAIL_PASS: string;
   }
 }
