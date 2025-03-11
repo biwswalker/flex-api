@@ -8,6 +8,8 @@ import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟ
 import { generateAccessToken } from "../utils/jwtUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
 const url = process.env.API_UPLOAD;
 
 const db = knex(knexConfig.development);
@@ -366,11 +368,59 @@ User.login = async (req: any, result: any) => {
 
 User.forgotPassword = async (req: any, result: any) => {
   try {
-    const { password } = req.headers;
     const { email } = req.body;
 
-    result(null, true);
-    // }
+    // ค้นหาผู้ใช้จากฐานข้อมูล
+    const user = await db("users").where({ email }).first();
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบอีเมลนี้ในระบบ",
+        data: null,
+      });
+    }
+
+    // สร้าง OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    // สร้าง reference string
+    const ref = crypto.randomBytes(3).toString('hex');
+
+    // เก็บ OTP ในฐานข้อมูลชั่วคราว
+    await db("otp").insert({
+      user_id: user.id,
+      action: "reset_password",
+      ref,
+      otp,
+    });
+
+    // ตั้งค่า nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // ตั้งค่าอีเมล
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Reset Password OTP',
+      text: `กรุณาใช้ OTP นี้เพื่อเปลี่ยนรหัสผ่านของท่าน: ${otp}\nReference: ${ref}`,
+    };
+
+    // ส่งอีเมล
+    await transporter.sendMail(mailOptions);
+
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "OTP สำหรับเปลี่ยนรหัสผ่านถูกส่งไปยังอีเมลของท่าน",
+      data: null,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,
