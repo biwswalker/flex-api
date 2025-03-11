@@ -1,24 +1,31 @@
-# Use the official Node.js image as the base image
-FROM node:20-alpine
-
-# Set the working directory
+# Stage 1: Build
+FROM node:20-alpine AS builder
 WORKDIR /usr/src/flex-api
 
-# Copy package.json and package-lock.json
+# Copy only the package files for installation
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies using npm ci for cleaner installs
+# RUN npm ci --unsafe-perm
+RUN npm install --frozen-lockfile --unsafe-perm
 
-# Copy the rest of the application code
+# Copy the source code after dependencies are installed
 COPY . .
 
 # Build the application
 RUN npm run build
 
-# Expose the port the app runs on
-EXPOSE 5000
+# Stage 2: Production
+FROM node:20-alpine
+WORKDIR /usr/src/flex-api
 
-# Start the application
-RUN ["chmod", "+x", "/usr/local/bin/docker-entrypoint.sh"]
-CMD ["npm", "start"]
+# Copy only the necessary files from builder stage
+COPY package.json package-lock.json ./
+COPY --from=builder /usr/src/flex-api/node_modules /usr/src/flex-api/node_modules
+COPY --from=builder /usr/src/flex-api/dist /usr/src/flex-api/dist
+
+# Optional: Rebuild specific native modules if required (e.g. better-sqlite3)
+RUN npm rebuild better-sqlite3
+
+EXPOSE 4000
+CMD ["/usr/src/flex-api/dist/server.js"]
