@@ -21,7 +21,7 @@ Company.createCompany = async (req: any, result: any) => {
     } = req.body;
 
     // ตรวจสอบชื่อบริษัทว่ามีอยู่ในระบบหรือไม่
-    const existingCompany = await db("company").where("name", name).first();
+    const existingCompany = await db(TABLE).where("name", name).first();
     if (existingCompany) {
       // ส่งข้อความ error กลับไปในรูปแบบ response
       return result(
@@ -40,7 +40,7 @@ Company.createCompany = async (req: any, result: any) => {
     const imageUrl = await uploadFile(uploadfile, TABLE);
 
     // เพิ่มข้อมูลบริษัทใหม่
-    const [newCompany] = await db("company")
+    const [newCompany] = await db(TABLE)
       .insert({
         name,
         address,
@@ -65,77 +65,75 @@ Company.createCompany = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
 
 Company.getCompany = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { text_search, page = 1, size = 10 } = req.query;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    let query = db("company").select(
+      "id",
+      "name",
+      "address",
+      "sub_district",
+      "district",
+      "province",
+      "postcode",
+      "phone",
+      "email",
+      db.raw(`? || image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+      "created_at",
+      "updated_at"
+    );
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (text_search) {
+      query.where(function () {
+        this.where("name", "like", `%${text_search}%`)
+          .orWhere("address", "like", `%${text_search}%`)
+          .orWhere("sub_district", "like", `%${text_search}%`)
+          .orWhere("district", "like", `%${text_search}%`)
+          .orWhere("province", "like", `%${text_search}%`)
+          .orWhere("postcode", "like", `%${text_search}%`)
+          .orWhere("phone", "like", `%${text_search}%`)
+          .orWhere("email", "like", `%${text_search}%`);
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    const page_start = (page - 1) * size;
+    query.offset(page_start).limit(size);
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
+    const companies = await query;
 
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
+    if (companies.length === 0) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลบริษัท",
+        data: null,
+      });
+    }
 
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ค้นหาบริษัทสำเร็จ",
+      data: companies,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
@@ -143,7 +141,7 @@ Company.getCompany = async (req: any, result: any) => {
 Company.getCompanyById = async (req: any, result: any) => {
   try {
     const { id } = req.params;
-    const company = await db("company").where("id", id).first();
+    const company = await db(TABLE).where("id", id).first();
 
     // หากไม่พบข้อมูลบริษัท
     if (!company) {
@@ -184,140 +182,100 @@ Company.getCompanyById = async (req: any, result: any) => {
 
 Company.updateCompanyById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
+    const {
+      name,
+      address,
+      sub_district,
+      district,
+      province,
+      postcode,
+      phone,
+      email,
+    } = req.body;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    const uploadfile = req.files?.profile_image;
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    let imageUrl;
+    if (uploadfile) {
+      imageUrl = await uploadFile(uploadfile, TABLE);
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    const [updatedCompany] = await db(TABLE)
+      .where("id", id)
+      .update({
+        name,
+        address,
+        sub_district,
+        district,
+        province,
+        postcode,
+        phone,
+        email,
+        ...(imageUrl && { image_url: imageUrl }),
+      })
+      .returning("*");
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
+    if (!updatedCompany) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลบริษัท",
+        data: null,
+      });
+    }
 
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "อัพเดทข้อมูลบริษัทสำเร็จ",
+      data: {
+        ...updatedCompany,
+        image_url: url + updatedCompany.image_url,
+      },
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
 
 Company.deleteCompanyById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    const [deletedCompany] = await db(TABLE)
+      .where("id", id)
+      .del()
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!deletedCompany) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบข้อมูลบริษัท",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
-
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ลบข้อมูลบริษัทสำเร็จ",
+      data: deletedCompany,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };

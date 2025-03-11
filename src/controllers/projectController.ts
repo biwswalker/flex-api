@@ -1,8 +1,8 @@
-import Company from "../models/Company";
+import Project from "../models/Project";
 
 // Controller
-export const createCompany = (req: any, res: any) => {
-  Company.createCompany(req, (err: any, data: any) => {
+export const createProject = (req: any, res: any) => {
+  Project.createProject(req, (err: any, data: any) => {
     if (err) {
       res.status(500).send(data); // ส่ง error response กลับไป
     } else {
@@ -11,8 +11,8 @@ export const createCompany = (req: any, res: any) => {
   });
 };
 
-export const getCompany = (req: any, res: any) => {
-  Company.getCompany(req, (err: any, data: any) => {
+export const getProject = (req: any, res: any) => {
+  Project.getProject(req, (err: any, data: any) => {
     if (err) {
       res.status(500).send(data); // ส่ง error response กลับไป
     } else {
@@ -21,8 +21,8 @@ export const getCompany = (req: any, res: any) => {
   });
 };
 
-export const getCompanyById = (req: any, res: any) => {
-  Company.getCompanyById(req, (err: any, data: any) => {
+export const getProjectById = (req: any, res: any) => {
+  Project.getProjectById(req, (err: any, data: any) => {
     if (err) {
       res.status(500).send(data); // ส่ง error response กลับไป
     } else {
@@ -31,8 +31,8 @@ export const getCompanyById = (req: any, res: any) => {
   });
 };
 
-export const updateCompanyById = (req: any, res: any) => {
-  Company.updateCompanyById(req, (err: any, data: any) => {
+export const updateProjectById = (req: any, res: any) => {
+  Project.updateProjectById(req, (err: any, data: any) => {
     if (err) {
       res.status(500).send(data); // ส่ง error response กลับไป
     } else {
@@ -41,8 +41,8 @@ export const updateCompanyById = (req: any, res: any) => {
   });
 };
 
-export const deleteCompanyById = (req: any, res: any) => {
-  Company.deleteCompanyById(req, (err: any, data: any) => {
+export const deleteProjectById = (req: any, res: any) => {
+  Project.deleteProjectById(req, (err: any, data: any) => {
     if (err) {
       res.status(500).send(data); // ส่ง error response กลับไป
     } else {

@@ -5,8 +5,11 @@ import knexConfig from "../config/knexfile";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 import { decryptAES256 } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
+import { generateAccessToken } from "../utils/jwtUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
 const url = process.env.API_UPLOAD;
 
 const db = knex(knexConfig.development);
@@ -57,7 +60,12 @@ User.createUser = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
@@ -120,210 +128,150 @@ User.getUser = async (req: any, result: any) => {
 
 User.getUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // ดึงข้อมูลผู้ใช้จากฐานข้อมูล
+    const user = await db("users")
+      .select(
+        "id",
+        "name",
+        "email",
+        "role",
+        db.raw(`? || image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+        "created_at",
+        "updated_at"
+      )
+      .where("id", id)
+      .first();
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // ดึงข้อมูลบริษัทที่เกี่ยวข้อง
+    const companies = await db("user_company as uc")
+      .join("company as c", "uc.company_id", "c.id")
+      .where("uc.user_id", id)
+      .select(
+        "c.id",
+        "c.name",
+        "c.address",
+        "c.sub_district",
+        "c.district",
+        "c.province",
+        "c.postcode",
+        "c.phone",
+        "c.email",
+        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+      );
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ดึงข้อมูลผู้ใช้สำเร็จ",
+      data: { user, companies },
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
 
 User.updateUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
+    const { name, email, role, company_id } = req.body;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // อัพเดทข้อมูลผู้ใช้ในฐานข้อมูล
+    const [updatedUser] = await db("users")
+      .where("id", id)
+      .update({
+        name,
+        email,
+        role,
+      })
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!updatedUser) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // อัพเดทข้อมูลบริษัทที่เกี่ยวข้อง
+    await db("user_company")
+      .where("user_id", id)
+      .update({
+        company_id,
+      });
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "อัพเดทข้อมูลผู้ใช้สำเร็จ",
+      data: updatedUser,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
 
 User.deleteUserById = async (req: any, result: any) => {
   try {
-    const { app_id } = req.headers;
-    const { text_search } = req.query;
-    const url = process.env.API_UPLOAD;
+    const { id } = req.params;
 
-    let col = [
-      "activity.activity_id",
-      "activity.activity_name",
-      "activity.activity_name_en",
-      "activity.activity_detail_name",
-      "activity.activity_detail_name_en",
-      "activity.start_date",
-      "activity.end_date",
-      "activity.is_active",
-      // knex.knex.raw(
-      //   `date_format(activity.created_at, '%d-%m-%Y') as created_at`
-      // ),
-      // knex.knex.raw(`CONCAT('${url}',activity.image_path) as image_path`),
-      // "activity.app_id",
-    ];
+    // ลบข้อมูลผู้ใช้จากฐานข้อมูล
+    const deletedUser = await db("users")
+      .where("id", id)
+      .del()
+      .returning("*");
 
-    // let query = knex.knex
-    //   .select(col)
-    //   .from(TABLE)
-    //   .where("activity.is_deleted", 0);
+    if (!deletedUser) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบผู้ใช้",
+        data: null,
+      });
+    }
 
-    // if (app_id) {
-    //   query.where("activity.app_id", app_id);
-    // }
+    // ลบข้อมูลบริษัทที่เกี่ยวข้อง
+    await db("user_company")
+      .where("user_id", id)
+      .del();
 
-    // if (req.body.page && req.body.size) {
-    //   let page = 1;
-    //   if (req.body.page) page = req.body.page;
-    //   let size = 10;
-    //   if (req.body.size) size = req.body.size;
-    //   let page_start = (page - 1) * size;
-    //   limit = "limit " + page_start + "," + size;
-    //   query.offset(page_start).limit(size);
-    // }
-
-    // if (text_search) {
-    //   query.where(function () {
-    //     this.where(
-    //       "activity.activity_name",
-    //       "REGEXP",
-    //       `${text_search}`
-    //     ).orWhere("activity.activity_name_en", "REGEXP", `${text_search}`);
-    //   });
-    // }
-
-    // let res = await query.then(function (result) {
-    //   return result;
-    // });
-
-    // if (res.length == 0) {
-    //   result("ไม่พบข้อมูล", null);
-    // } else {
-    //   const data = {
-    //     data: res,
-    //     // length: await getActivityTotal(req),
-    //   };
-    result(null, true);
-    // }
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ลบข้อมูลผู้ใช้สำเร็จ",
+      data: deletedUser,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
@@ -385,9 +333,8 @@ User.login = async (req: any, result: any) => {
       );
 
     // สร้าง access token
-    const token = jwt.sign(
+    const token = generateAccessToken(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET_KEY!,
       { expiresIn: "24h" }
     );
 
@@ -421,13 +368,66 @@ User.login = async (req: any, result: any) => {
 
 User.forgotPassword = async (req: any, result: any) => {
   try {
-    const { password } = req.headers;
     const { email } = req.body;
 
-    result(null, true);
-    // }
+    // ค้นหาผู้ใช้จากฐานข้อมูล
+    const user = await db("users").where({ email }).first();
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบอีเมลนี้ในระบบ",
+        data: null,
+      });
+    }
+
+    // สร้าง OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    // สร้าง reference string
+    const ref = crypto.randomBytes(3).toString('hex');
+
+    // เก็บ OTP ในฐานข้อมูลชั่วคราว
+    await db("otp").insert({
+      user_id: user.id,
+      action: "reset_password",
+      ref,
+      otp,
+    });
+
+    // ตั้งค่า nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // ตั้งค่าอีเมล
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Reset Password OTP',
+      text: `กรุณาใช้ OTP นี้เพื่อเปลี่ยนรหัสผ่านของท่าน: ${otp}\nReference: ${ref}`,
+    };
+
+    // ส่งอีเมล
+    await transporter.sendMail(mailOptions);
+
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "OTP สำหรับเปลี่ยนรหัสผ่านถูกส่งไปยังอีเมลของท่าน",
+      data: null,
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
@@ -440,20 +440,75 @@ User.resetPassword = async (req: any, result: any) => {
     result(null, true);
     // }
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
 
 User.me = async (req: any, result: any) => {
   try {
-    const { password } = req.headers;
-    const { email } = req.body;
+    const { id } = req.body;
+    // ✅ ดึงข้อมูลผู้ใช้จากฐานข้อมูล
+    const user = await db("users")
+      .select(
+        "id",
+        "name",
+        "email",
+        "role",
+        db.raw(`? || image_url as image_url`, [url]), // ✅ ใช้ `||` สำหรับ PostgreSQL
+        "created_at",
+        "updated_at"
+      )
+      .where("id", id)
+      .first();
 
-    result(null, true);
-    // }
+    if (!user) {
+      return result.status(400).json({
+        success: false,
+        code: 400,
+        message: "ไม่สามารถดูข้อมูลผู้ใช้ในระบบได้ เนื่องจากเกิดข้อผิดพลาด",
+        data: null,
+      });
+    }
+
+    // ✅ ดึงข้อมูลบริษัทที่เกี่ยวข้อง
+    const companies = await db("user_company as uc")
+      .join("company as c", "uc.company_id", "c.id")
+      .where("uc.user_id", id)
+      .select(
+        "c.id",
+        "c.name",
+        "c.address",
+        "c.sub_district",
+        "c.district",
+        "c.province",
+        "c.postcode",
+        "c.phone",
+        "c.email",
+        "created_at",
+        "updated_at",
+        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+      );
+
+    // ✅ ส่งข้อมูลกลับ
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "รายการผู้ใช้สำเร็จ",
+      data: { user, companies },
+    });
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };
@@ -466,7 +521,12 @@ User.logout = async (req: any, result: any) => {
     result(null, true);
     // }
   } catch (error: any) {
-    result(error, null);
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
     throw new Error(error);
   }
 };

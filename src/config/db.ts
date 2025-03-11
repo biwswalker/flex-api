@@ -7,7 +7,7 @@ async function testConnection() {
   try {
     await db.raw("SELECT 1");
     console.log("✅ Database connected successfully!");
-  } catch (error) {
+  } catch (error:any) {
     console.error("❌ Database connection failed:", error);
   } finally {
     await db.destroy(); // ปิด connection หลังจากทดสอบเสร็จ

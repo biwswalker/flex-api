@@ -8,7 +8,6 @@ import routes from "./routes";
 import _ from "lodash"; // ใช้สำหรับ Utility functions
 import { logResponseBody } from "./middlewares/logMiddleware";
 import dotenv from "dotenv";
-import "./config/db"; // Import db.ts จะทำให้ฟังก์ชันทดสอบรันอัตโนมัติ
 
 dotenv.config();
 
