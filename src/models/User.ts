@@ -212,11 +212,9 @@ User.updateUserById = async (req: any, result: any) => {
     }
 
     // อัพเดทข้อมูลบริษัทที่เกี่ยวข้อง
-    await db("user_company")
-      .where("user_id", id)
-      .update({
-        company_id,
-      });
+    await db("user_company").where("user_id", id).update({
+      company_id,
+    });
 
     return result(null, {
       success: true,
@@ -240,10 +238,7 @@ User.deleteUserById = async (req: any, result: any) => {
     const { id } = req.params;
 
     // ลบข้อมูลผู้ใช้จากฐานข้อมูล
-    const deletedUser = await db("users")
-      .where("id", id)
-      .del()
-      .returning("*");
+    const deletedUser = await db("users").where("id", id).del().returning("*");
 
     if (!deletedUser) {
       return result(null, {
@@ -255,9 +250,7 @@ User.deleteUserById = async (req: any, result: any) => {
     }
 
     // ลบข้อมูลบริษัทที่เกี่ยวข้อง
-    await db("user_company")
-      .where("user_id", id)
-      .del();
+    await db("user_company").where("user_id", id).del();
 
     return result(null, {
       success: true,
@@ -385,7 +378,7 @@ User.forgotPassword = async (req: any, result: any) => {
     const otp = crypto.randomInt(100000, 999999).toString();
 
     // สร้าง reference string
-    const ref = crypto.randomBytes(3).toString('hex');
+    const ref = crypto.randomBytes(3).toString("hex");
 
     // เก็บ OTP ในฐานข้อมูลชั่วคราว
     await db("otp").insert({
@@ -397,7 +390,7 @@ User.forgotPassword = async (req: any, result: any) => {
 
     // ตั้งค่า nodemailer
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -408,7 +401,7 @@ User.forgotPassword = async (req: any, result: any) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: 'Reset Password OTP',
+      subject: "Reset Password OTP",
       text: `กรุณาใช้ OTP นี้เพื่อเปลี่ยนรหัสผ่านของท่าน: ${otp}\nReference: ${ref}`,
     };
 
@@ -434,11 +427,100 @@ User.forgotPassword = async (req: any, result: any) => {
 
 User.resetPassword = async (req: any, result: any) => {
   try {
-    const { password } = req.headers;
-    const { email } = req.body;
+    const { email, otp, ref, password } = req.body;
 
-    result(null, true);
-    // }
+    // ค้นหาผู้ใช้จากฐานข้อมูล
+    const user = await db("users").where({ email }).first();
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบอีเมลนี้ในระบบ",
+        data: null,
+      });
+    }
+
+    // ค้นหา OTP จากฐานข้อมูล
+    const otpRecord = await db("otp")
+      .where({ user_id: user.id, otp, ref, action: "reset_password" })
+      .first();
+
+    if (!otpRecord) {
+      return result(null, {
+        success: false,
+        code: 400,
+        message: "OTP หรือ Reference ไม่ถูกต้อง",
+        data: null,
+      });
+    }
+
+    // ถอดรหัสรหัสผ่านใหม่ (AES-256)
+    const decryptedPassword = decryptAES256(password);
+
+    // แฮชรหัสผ่านใหม่
+    const hashedPassword = await hashPassword(decryptedPassword);
+
+    // อัพเดทรหัสผ่านในฐานข้อมูล
+    await db("users").where({ id: user.id }).update({ password: hashedPassword });
+
+    // ลบ OTP หลังจากใช้งาน
+    // await db("otp").where({ id: otpRecord.id }).del();
+
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "เปลี่ยนรหัสผ่านสำเร็จ",
+      data: null,
+    });
+  } catch (error: any) {
+    return result(error, {
+      success: false,
+      code: 500,
+      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+      data: null,
+    });
+    throw new Error(error);
+  }
+};
+
+User.verify = async (req: any, result: any) => {
+  try {
+    const { email, otp, ref } = req.body;
+
+    // ค้นหาผู้ใช้จากฐานข้อมูล
+    const user = await db("users").where({ email }).first();
+    if (!user) {
+      return result(null, {
+        success: false,
+        code: 404,
+        message: "ไม่พบอีเมลนี้ในระบบ",
+        data: null,
+      });
+    }
+
+    // ค้นหา OTP จากฐานข้อมูล
+    const otpRecord = await db("otp")
+      .where({ user_id: user.id, otp, ref, action: "user_verify" })
+      .first();
+
+    if (!otpRecord) {
+      return result(null, {
+        success: false,
+        code: 400,
+        message: "OTP หรือ Reference ไม่ถูกต้อง",
+        data: null,
+      });
+    }
+
+    // ลบ OTP หลังจากใช้งาน
+    // await db("otp").where({ id: otpRecord.id }).del();
+
+    return result(null, {
+      success: true,
+      code: 200,
+      message: "ยืนยัน OTP สำเร็จ",
+      data: null,
+    });
   } catch (error: any) {
     return result(error, {
       success: false,

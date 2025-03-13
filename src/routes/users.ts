@@ -8,6 +8,7 @@ import {
   deleteUserById,
   login,
   forgotPassword,
+  verify,
   resetPassword,
   me,
   logout,
@@ -25,6 +26,7 @@ router.delete("/users/:id", deleteUserById);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+router.post("/verify", verify);
 router.get("/me", verifyToken, me);
 router.post("/logout", logout);
 

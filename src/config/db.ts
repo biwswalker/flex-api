@@ -6,9 +6,9 @@ const db = knex(knexConfig.development);
 async function testConnection() {
   try {
     await db.raw("SELECT 1");
-    console.log("✅ Database connected successfully!");
+    console.log(`✅ Database ${process.env.DB_NAME} connected successfully!`);
   } catch (error:any) {
-    console.error("❌ Database connection failed:", error);
+    console.error(`❌ Database ${process.env.DB_NAME} connection failed:`, error);
   } finally {
     await db.destroy(); // ปิด connection หลังจากทดสอบเสร็จ
   }
