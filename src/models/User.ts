@@ -12,7 +12,7 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 const url = process.env.API_UPLOAD;
 
-const db = knex(knexConfig.development);
+const db = knex(knexConfig);
 
 User.createUser = async (req: any, result: any) => {
   try {
