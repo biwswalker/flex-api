@@ -4,7 +4,7 @@ import knex from "knex";
 import knexConfig from "../config/knexfile";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 const url = process.env.API_UPLOAD;
-const db = knex(knexConfig.development);
+const db = knex(knexConfig);
 
 // Model
 Company.createCompany = async (req: any, result: any) => {
