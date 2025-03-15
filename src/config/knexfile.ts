@@ -12,6 +12,11 @@ const config: Knex.Config = {
     database: process.env.DB_NAME,
     port: Number(process.env.DB_PORT) || 5432,
   },
+  pool: {
+    min: 2,
+    max: 20,
+    acquireTimeoutMillis: 60000,
+  },
   migrations: {
     directory: "./migrations",
   },
