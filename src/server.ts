@@ -31,6 +31,6 @@ if (API_TYPE === "HTTP" || API_TYPE === "cleavr") {
 
   const server = https.createServer(options, app);
   server.listen(PORT, () => {
-    console.log(`Server running on https://localhost:${PORT}`);
+    console.log(`✈️ Server running on https://localhost:${PORT}`);
   });
 }

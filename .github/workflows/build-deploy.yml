@@ -7,31 +7,35 @@ on:
 env:
   IMAGE_NAME: flex-api
   DOCKER_USER: ${{secrets.DOCKER_USER}}
-  DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
-  PORT: ${{secrets.PORT}}
-  API_TYPE: ${{secrets.API_TYPE}}
-  API_UPLOAD: ${{secrets.API_UPLOAD}}
-  DB_HOST: ${{secrets.DB_HOST}}
-  DB_NAME: ${{secrets.DB_NAME}}
-  DB_PORT: ${{secrets.DB_PORT}}
-  DB_USER: ${{secrets.DB_USER}}
-  DB_PASSWORD: ${{secrets.DB_PASSWORD}}
-  BCRYPT_SALT_ROUNDS: ${{secrets.BCRYPT_SALT_ROUNDS}}
-  AES_SECRET_IV: ${{secrets.AES_SECRET_IV}}
-  AES_SECRET_KEY: ${{secrets.AES_SECRET_KEY}}
-  JWT_SECRET_KEY: ${{secrets.JWT_SECRET_KEY}}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository code
         uses: actions/checkout@v3
-      - name: Declare ENV
-        run: echo "Build environment port $PORT"
       - name: Docker login
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+        run: docker login -u ${{secrets.DOCKER_USER}} -p ${{secrets.DOCKER_PASSWORD}}
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag ${{ secrets.DOCKER_USER }}/$(echo $IMAGE_NAME)
-      - name: Docker push
-        run: docker push ${{ secrets.DOCKER_USER }}/$(echo $IMAGE_NAME)
+        run: docker build . --file Dockerfile --tag ${{secrets.DOCKER_USER}}/$(echo $IMAGE_NAME)
+      - name: Docker push to Hub
+        run: docker push ${{secrets.DOCKER_USER}}/$(echo $IMAGE_NAME)
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{secrets.FLEXIO_SERVER_SSH_PRIVATE}}
+      - name: SSH into server and deploy using docker-compose
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{secrets.FLEXIO_SERVER_USER}}@${{secrets.FLEXIO_SERVER_HOST_URL}} << 'EOF'
+            cd flexio
+            echo ok
+            docker compose pull flex-api
+            docker compose up -d --force-recreate flex-api
+            docker compose exec nginx nginx -s reload
+            docker image prune -a -f
+            exit
+          EOF
