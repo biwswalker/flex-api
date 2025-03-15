@@ -1,7 +1,7 @@
 import knex from "knex";
 import knexConfig from "../config/knexfile";
 
-const db = knex(knexConfig.development);
+const db = knex(knexConfig);
 
 async function testConnection() {
   try {
