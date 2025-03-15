@@ -13,14 +13,8 @@ const config: Knex.Config = {
     port: Number(process.env.DB_PORT) || 5432,
   },
   pool: {
-    min: 2,
-    max: 20,
-    createTimeoutMillis: 3000,
-    acquireTimeoutMillis: 30000,
-    idleTimeoutMillis: 30000,
-    reapIntervalMillis: 1000,
-    createRetryIntervalMillis: 100,
-    propagateCreateError: false, // <- default is true, set to false
+    idleTimeoutMillis: 600000,
+    propagateCreateError: false,
   },
   migrations: {
     directory: "./migrations",
