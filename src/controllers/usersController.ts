@@ -51,12 +51,11 @@ export const deleteUserById = (req: any, res: any) => {
 };
 
 export const login = (req: any, res: any) => {
-  User.login(req, (err: any, data: any) => {
-    if (err) {
-      res.status(500).send(data); // ส่ง error response กลับไป
-    } else {
-      res.status(200).send(data); // ส่งข้อมูลที่สำเร็จกลับไป
+  User.login(req, (data, error) => {
+    if(error) {
+      // Boolean for error handlering
     }
+    return res.status(data.code).send(data); // ส่งข้อมูลที่สำเร็จกลับไป
   });
 };
 

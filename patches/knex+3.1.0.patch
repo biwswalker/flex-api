@@ -1,0 +1,14 @@
+diff --git a/node_modules/knex/lib/client.js b/node_modules/knex/lib/client.js
+index 00ee289..4f4a3e8 100644
+--- a/node_modules/knex/lib/client.js
++++ b/node_modules/knex/lib/client.js
+@@ -331,7 +331,8 @@ class Client extends EventEmitter {
+       if (error instanceof TimeoutError) {
+         convertedError = new KnexTimeoutError(
+           'Knex: Timeout acquiring a connection. The pool is probably full. ' +
+-            'Are you missing a .transacting(trx) call?'
++            'Are you missing a .transacting(trx) call? ' +
++            'Or please check "destroy", "commit" after success, "rollback" after failure.',
+         );
+       }
+       throw convertedError;

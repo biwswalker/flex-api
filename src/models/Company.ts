@@ -1,11 +1,12 @@
 const Company = function () {};
 const TABLE = "company";
-import db from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
+import dbConnection from "@config/knex";
 const url = process.env.API_UPLOAD;
 
 // Model
 Company.createCompany = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const {
       name,
@@ -74,6 +75,7 @@ Company.createCompany = async (req: any, result: any) => {
 };
 
 Company.getCompany = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { text_search, page = 1, size = 10 } = req.query;
 
@@ -137,6 +139,7 @@ Company.getCompany = async (req: any, result: any) => {
 };
 
 Company.getCompanyById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
     const company = await db(TABLE).where("id", id).first();
@@ -179,6 +182,7 @@ Company.getCompanyById = async (req: any, result: any) => {
 };
 
 Company.updateCompanyById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
     const {
@@ -244,6 +248,7 @@ Company.updateCompanyById = async (req: any, result: any) => {
 };
 
 Company.deleteCompanyById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
 

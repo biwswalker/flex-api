@@ -1,11 +1,12 @@
 const Project = function () {};
 const TABLE = "project";
-import db from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
+import dbConnection from "@config/knex";
 const url = process.env.API_UPLOAD;
 
 // Model
 Project.createProject = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { company_id, name, description, budget, status } = req.body;
 
@@ -40,6 +41,7 @@ Project.createProject = async (req: any, result: any) => {
 };
 
 Project.getProject = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { text_search, page = 1, size = 10 } = req.query;
 
@@ -57,8 +59,11 @@ Project.getProject = async (req: any, result: any) => {
 
     if (text_search) {
       query.where(function () {
-        this.where("name", "like", `%${text_search}%`)
-          .orWhere("description", "like", `%${text_search}%`);
+        this.where("name", "like", `%${text_search}%`).orWhere(
+          "description",
+          "like",
+          `%${text_search}%`
+        );
       });
     }
 
@@ -94,6 +99,7 @@ Project.getProject = async (req: any, result: any) => {
 };
 
 Project.getProjectById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
     const project = await db(TABLE).where("id", id).first();
@@ -136,6 +142,7 @@ Project.getProjectById = async (req: any, result: any) => {
 };
 
 Project.updateProjectById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
     const { company_id, name, description, budget, status } = req.body;
@@ -189,6 +196,7 @@ Project.updateProjectById = async (req: any, result: any) => {
 };
 
 Project.deleteProjectById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
 

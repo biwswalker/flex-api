@@ -1,17 +1,17 @@
 const User = function () {};
 const TABLE = "users";
-import db from "@config/knex";
+import dbConnection, { dbTransaction } from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 import { decryptAES256 } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
 import { generateAccessToken } from "../utils/jwtUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 const url = process.env.API_UPLOAD;
 
-User.createUser = async (req: any, result: any) => {
+User.createUser = async (req: any, result: Result) => {
+  const { database, transaction } = await dbTransaction();
   try {
     const { name, password, email, role, company_id } = req.body;
 
@@ -27,7 +27,7 @@ User.createUser = async (req: any, result: any) => {
     const hashedPassword = await hashPassword(decryptedPassword);
 
     // 🔹 บันทึกข้อมูลลงฐานข้อมูล
-    const [newUser] = await db(TABLE)
+    const [newUser] = await transaction(TABLE)
       .insert({
         name,
         email,
@@ -37,14 +37,15 @@ User.createUser = async (req: any, result: any) => {
       })
       .returning("*");
 
-    await db("user_company")
+    await transaction("user_company")
       .insert({
         user_id: newUser.id,
         company_id,
       })
       .returning("*");
 
-    result(null, {
+    transaction.commit() // ***ต้องใส่เสมอหากใช้ transaction
+    result({
       success: true,
       code: 200,
       message: "ผู้ใช้ลงทะเบียนสำเร็จ",
@@ -57,17 +58,21 @@ User.createUser = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    return result(error, {
+    transaction.rollback(error) // ***ต้องใส่เสมอหากใช้ transaction เพื่อคืนค่ากลับตามเดิม
+    result({
       success: false,
       code: 500,
       message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
+      data: error,
+    }, true);
     throw new Error(error);
+  } finally {
+    database.destroy()
   }
 };
 
 User.getUser = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { email, role, company_ids, name } = req.query;
 
@@ -124,6 +129,7 @@ User.getUser = async (req: any, result: any) => {
 };
 
 User.getUserById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
 
@@ -185,6 +191,7 @@ User.getUserById = async (req: any, result: any) => {
 };
 
 User.updateUserById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
     const { name, email, role, company_id } = req.body;
@@ -231,6 +238,7 @@ User.updateUserById = async (req: any, result: any) => {
 };
 
 User.deleteUserById = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.params;
 
@@ -266,29 +274,30 @@ User.deleteUserById = async (req: any, result: any) => {
   }
 };
 
-User.login = async (req: any, result: any) => {
+User.login = async (req: any, result: Result) => {
+  const database = await dbConnection();
   try {
     const { password } = req.headers;
     const { email } = req.body;
 
     if (!email || !password) {
-      return result(null, {
+      return result({
         success: false,
         code: 400,
         message: "กรุณากรอกอีเมลและรหัสผ่าน",
         data: null,
-      });
+      }, true);
     }
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
-    const user = await db("users").where({ email }).first();
+    const user = await database("users").where({ email }).first();
     if (!user) {
-      return result(null, {
+      return result({
         success: false,
         code: 401,
         message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
         data: null,
-      });
+      }, true);
     }
 
     // ถอดรหัส AES-256 ของรหัสผ่านที่รับมา
@@ -297,16 +306,16 @@ User.login = async (req: any, result: any) => {
     // ตรวจสอบรหัสผ่านกับ hash ที่เก็บในฐานข้อมูล
     const isMatch = await bcrypt.compare(decryptedPassword, user.password);
     if (!isMatch) {
-      return result(null, {
+      return result({
         success: false,
         code: 401,
         message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
         data: null,
-      });
+      }, true);
     }
 
     // ดึงข้อมูลบริษัทที่ผู้ใช้มีสิทธิ์เข้าถึง
-    const companies = await db("user_company as uc")
+    const companies = await database("user_company as uc")
       .join("company as c", "uc.company_id", "=", "c.id")
       .where("uc.user_id", user.id)
       .select(
@@ -319,7 +328,7 @@ User.login = async (req: any, result: any) => {
         "c.postcode",
         "c.phone",
         "c.email",
-        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+        database.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
       );
 
     // สร้าง access token
@@ -329,7 +338,7 @@ User.login = async (req: any, result: any) => {
     );
 
     // ส่งข้อมูลกลับไปยัง client
-    result(null, {
+    result({
       success: true,
       code: 200,
       message: "ลงชื่อเข้าใช้สำเร็จ",
@@ -346,17 +355,20 @@ User.login = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    result(error, {
+    result({
       success: false,
       code: 500,
       message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
+      data: error,
+    }, true);
     throw new Error(error);
+  } finally {
+    database.destroy()
   }
 };
 
 User.forgotPassword = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { email } = req.body;
 
@@ -423,6 +435,7 @@ User.forgotPassword = async (req: any, result: any) => {
 };
 
 User.resetPassword = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { email, otp, ref, password } = req.body;
 
@@ -458,7 +471,9 @@ User.resetPassword = async (req: any, result: any) => {
     const hashedPassword = await hashPassword(decryptedPassword);
 
     // อัพเดทรหัสผ่านในฐานข้อมูล
-    await db("users").where({ id: user.id }).update({ password: hashedPassword });
+    await db("users")
+      .where({ id: user.id })
+      .update({ password: hashedPassword });
 
     // ลบ OTP หลังจากใช้งาน
     // await db("otp").where({ id: otpRecord.id }).del();
@@ -481,6 +496,7 @@ User.resetPassword = async (req: any, result: any) => {
 };
 
 User.verify = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { email, otp, ref } = req.body;
 
@@ -530,6 +546,7 @@ User.verify = async (req: any, result: any) => {
 };
 
 User.me = async (req: any, result: any) => {
+  const db = dbConnection()
   try {
     const { id } = req.body;
     // ✅ ดึงข้อมูลผู้ใช้จากฐานข้อมูล
