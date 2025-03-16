@@ -1,0 +1,45 @@
+diff --git a/node_modules/knex/lib/client.js b/node_modules/knex/lib/client.js
+index 00ee289..2b0c724 100644
+--- a/node_modules/knex/lib/client.js
++++ b/node_modules/knex/lib/client.js
+@@ -327,14 +327,33 @@ class Client extends EventEmitter {
+       }
+       return connection;
+     } catch (error) {
+-      let convertedError = error;
+-      if (error instanceof TimeoutError) {
+-        convertedError = new KnexTimeoutError(
+-          'Knex: Timeout acquiring a connection. The pool is probably full. ' +
+-            'Are you missing a .transacting(trx) call?'
+-        );
++      // let convertedError = error;
++      // if (error instanceof TimeoutError) {
++      //   convertedError = new KnexTimeoutError(
++      //     'Knex: Timeout acquiring a connection. The pool is probably full. ' +
++      //       'Are you missing a .transacting(trx) call?'
++      //   );
++      // }
++      // throw convertedError;
++      this.logger.warn('Acquire connection error, retrying once');
++      try {
++        if (!this.pool) {
++          this.logger.warn('Pool has been destroyed, initializing again');
++          this.initializePool();
++        }
++        const connection = await this.pool.acquire().promise;
++        debug('acquired connection from pool: %s', connection.__knexUid);
++        return connection;
++      } catch (error) {
++        let convertedError = error;
++        if (error instanceof TimeoutError) {
++          convertedError = new KnexTimeoutError(
++            'Knex: Timeout acquiring a connection. The pool is probably full. ' +
++              'Are you missing a .transacting(trx) call?'
++          );
++        }
++        throw convertedError;
+       }
+-      throw convertedError;
+     }
+   }
+ 

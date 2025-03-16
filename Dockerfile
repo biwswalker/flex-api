@@ -4,6 +4,7 @@ WORKDIR /usr/src/flex-api
 
 # Copy only the package files for installation
 COPY package.json package-lock.json ./
+COPY ./patches ./patches ./
 
 # Install dependencies using npm ci for cleaner installs
 # RUN npm ci --unsafe-perm
@@ -13,6 +14,7 @@ RUN npm install --frozen-lockfile --unsafe-perm
 COPY . .
 
 # Build the application
+RUN npx patch-package
 RUN npm run build
 
 # Stage 2: Production
