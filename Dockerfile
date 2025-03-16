@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 WORKDIR /usr/src/flex-api
 
 # Copy only the package files for installation
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine
+FROM node:18-alpine
 WORKDIR /usr/src/flex-api
 
 # Copy only the necessary files from builder stage

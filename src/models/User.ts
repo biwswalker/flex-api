@@ -1,7 +1,6 @@
 const User = function () {};
 const TABLE = "users";
-import knex from "knex";
-import knexConfig from "../config/knexfile";
+import db from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 import { decryptAES256 } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
@@ -11,8 +10,6 @@ import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 const url = process.env.API_UPLOAD;
-
-const db = knex(knexConfig);
 
 User.createUser = async (req: any, result: any) => {
   try {

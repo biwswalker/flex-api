@@ -1,10 +1,8 @@
 const Project = function () {};
 const TABLE = "project";
-import knex from "knex";
-import knexConfig from "../config/knexfile";
+import db from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 const url = process.env.API_UPLOAD;
-const db = knex(knexConfig);
 
 // Model
 Project.createProject = async (req: any, result: any) => {
