@@ -1,6 +1,7 @@
 import app from "./app";
 import dotenv from "dotenv";
 import { testConnection } from "@config/pg";
+import '@config/db'
 
 dotenv.config();
 
