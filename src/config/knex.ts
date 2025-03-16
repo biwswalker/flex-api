@@ -24,19 +24,37 @@ const config: Knex.Config = {
   },
 };
 
-const db = knex(config);
+let db: Knex | null = null;
 
-export default db;
+function dbConnection() {
+  if (db) {
+    db.destroy();
+  }
+  db = knex(config);
+  return db;
+}
+
+export default dbConnection;
+
+export async function dbTransaction() {
+  const database = dbConnection();
+  const transaction = await database.transaction();
+  return { transaction, database };
+}
 
 export async function testConnection() {
-  const transaction = await db.transaction()
+  const { transaction, database } = await dbTransaction();
   try {
     await transaction.raw("SELECT 1");
+    transaction.commit();
     console.log(`✅ Database ${process.env.DB_NAME} connected successfully!`);
-  } catch (error:any) {
-    await transaction.rollback();
-    console.error(`❌ Database ${process.env.DB_NAME} connection failed:`, error);
+  } catch (error: any) {
+    transaction.rollback(error);
+    console.error(
+      `❌ Database ${process.env.DB_NAME} connection failed:`,
+      error
+    );
   } finally {
-    await db.destroy(); // ปิด connection หลังจากทดสอบเสร็จ
+    await database.destroy(); // ปิด connection หลังจากทดสอบเสร็จ
   }
 }
