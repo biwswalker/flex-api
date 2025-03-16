@@ -267,6 +267,7 @@ User.deleteUserById = async (req: any, result: any) => {
 };
 
 User.login = async (req: any, result: any) => {
+  const transaction = await db.transaction()
   try {
     const { password } = req.headers;
     const { email } = req.body;
@@ -281,7 +282,7 @@ User.login = async (req: any, result: any) => {
     }
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
-    const user = await db("users").where({ email }).first();
+    const user = await transaction("users").where({ email }).first();
     if (!user) {
       return result(null, {
         success: false,
@@ -306,7 +307,7 @@ User.login = async (req: any, result: any) => {
     }
 
     // ดึงข้อมูลบริษัทที่ผู้ใช้มีสิทธิ์เข้าถึง
-    const companies = await db("user_company as uc")
+    const companies = await transaction("user_company as uc")
       .join("company as c", "uc.company_id", "=", "c.id")
       .where("uc.user_id", user.id)
       .select(
@@ -319,7 +320,7 @@ User.login = async (req: any, result: any) => {
         "c.postcode",
         "c.phone",
         "c.email",
-        db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
+        transaction.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
       );
 
     // สร้าง access token
