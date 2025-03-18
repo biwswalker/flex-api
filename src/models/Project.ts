@@ -5,8 +5,8 @@ import dbConnection from "@config/knex";
 const url = process.env.API_UPLOAD;
 
 // Model
-Project.createProject = async (req: any, result: any) => {
-  const db = dbConnection()
+Project.createProject = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { company_id, name, description, budget, status } = req.body;
 
@@ -21,7 +21,7 @@ Project.createProject = async (req: any, result: any) => {
       .returning("*");
 
     // ส่งข้อมูลโปรเจคที่ถูกเพิ่มไปยัง Controller
-    result(null, {
+    return result({
       success: true,
       code: 200,
       message: "สร้างโปรเจคสำเร็จ",
@@ -30,18 +30,20 @@ Project.createProject = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Project.getProject = async (req: any, result: any) => {
-  const db = dbConnection()
+Project.getProject = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { text_search, page = 1, size = 10 } = req.query;
 
@@ -73,7 +75,7 @@ Project.getProject = async (req: any, result: any) => {
     const projects = await query;
 
     if (projects.length === 0) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลโปรเจค",
@@ -81,25 +83,27 @@ Project.getProject = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ค้นหาโปรเจคสำเร็จ",
       data: projects,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Project.getProjectById = async (req: any, result: any) => {
-  const db = dbConnection()
+Project.getProjectById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
     const project = await db(TABLE).where("id", id).first();
@@ -113,12 +117,12 @@ Project.getProjectById = async (req: any, result: any) => {
           message: "ไม่พบข้อมูลโปรเจคในระบบ",
           data: null,
         },
-        null
+        true
       );
     }
 
     // ส่งข้อมูลโปรเจคที่พบ
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ค้นหาโปรเจคสำเร็จ",
@@ -133,16 +137,15 @@ Project.getProjectById = async (req: any, result: any) => {
         success: false,
         code: 500,
         message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-        data: null,
+        data: error.message,
       },
-      null
+      true
     );
-    throw new Error(error);
   }
 };
 
-Project.updateProjectById = async (req: any, result: any) => {
-  const db = dbConnection()
+Project.updateProjectById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
     const { company_id, name, description, budget, status } = req.body;
@@ -167,7 +170,7 @@ Project.updateProjectById = async (req: any, result: any) => {
       .returning("*");
 
     if (!updatedProject) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลโปรเจค",
@@ -175,7 +178,7 @@ Project.updateProjectById = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "อัพเดทข้อมูลโปรเจคสำเร็จ",
@@ -185,18 +188,20 @@ Project.updateProjectById = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Project.deleteProjectById = async (req: any, result: any) => {
-  const db = dbConnection()
+Project.deleteProjectById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
 
@@ -206,7 +211,7 @@ Project.deleteProjectById = async (req: any, result: any) => {
       .returning("*");
 
     if (!deletedProject) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลโปรเจค",
@@ -214,20 +219,22 @@ Project.deleteProjectById = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ลบข้อมูลโปรเจคสำเร็จ",
       data: deletedProject,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 

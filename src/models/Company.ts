@@ -5,8 +5,8 @@ import dbConnection from "@config/knex";
 const url = process.env.API_UPLOAD;
 
 // Model
-Company.createCompany = async (req: any, result: any) => {
-  const db = dbConnection()
+Company.createCompany = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const {
       name,
@@ -25,11 +25,12 @@ Company.createCompany = async (req: any, result: any) => {
       // ส่งข้อความ error กลับไปในรูปแบบ response
       return result(
         {
-          status: false,
+          success: false,
+          code: 400,
           message: "Company name already exists",
           data: [],
         },
-        null
+        true
       );
     }
 
@@ -54,7 +55,7 @@ Company.createCompany = async (req: any, result: any) => {
       .returning("*");
 
     // ส่งข้อมูลบริษัทที่ถูกเพิ่มไปยัง Controller
-    result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ผู้ใช้ลงทะเบียนสำเร็จ",
@@ -64,18 +65,20 @@ Company.createCompany = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Company.getCompany = async (req: any, result: any) => {
-  const db = dbConnection()
+Company.getCompany = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { text_search, page = 1, size = 10 } = req.query;
 
@@ -113,7 +116,7 @@ Company.getCompany = async (req: any, result: any) => {
     const companies = await query;
 
     if (companies.length === 0) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลบริษัท",
@@ -121,25 +124,27 @@ Company.getCompany = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ค้นหาบริษัทสำเร็จ",
       data: companies,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Company.getCompanyById = async (req: any, result: any) => {
-  const db = dbConnection()
+Company.getCompanyById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
     const company = await db(TABLE).where("id", id).first();
@@ -153,12 +158,12 @@ Company.getCompanyById = async (req: any, result: any) => {
           message: "ไม่พบข้อมูลบริษัทในระบบ",
           data: null,
         },
-        null
+        true
       );
     }
 
     // ส่งข้อมูลบริษัทที่พบ
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ค้นหาบริษัทสำเร็จ",
@@ -173,16 +178,15 @@ Company.getCompanyById = async (req: any, result: any) => {
         success: false,
         code: 500,
         message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-        data: null,
+        data: error.message,
       },
-      null
+      true
     );
-    throw new Error(error);
   }
 };
 
-Company.updateCompanyById = async (req: any, result: any) => {
-  const db = dbConnection()
+Company.updateCompanyById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
     const {
@@ -219,7 +223,7 @@ Company.updateCompanyById = async (req: any, result: any) => {
       .returning("*");
 
     if (!updatedCompany) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลบริษัท",
@@ -227,7 +231,7 @@ Company.updateCompanyById = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "อัพเดทข้อมูลบริษัทสำเร็จ",
@@ -237,18 +241,20 @@ Company.updateCompanyById = async (req: any, result: any) => {
       },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-Company.deleteCompanyById = async (req: any, result: any) => {
-  const db = dbConnection()
+Company.deleteCompanyById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
 
@@ -258,7 +264,7 @@ Company.deleteCompanyById = async (req: any, result: any) => {
       .returning("*");
 
     if (!deletedCompany) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบข้อมูลบริษัท",
@@ -266,20 +272,22 @@ Company.deleteCompanyById = async (req: any, result: any) => {
       });
     }
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ลบข้อมูลบริษัทสำเร็จ",
       data: deletedCompany,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
