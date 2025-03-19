@@ -12,6 +12,7 @@ export async function up(knex: Knex): Promise<void> {
     table.timestamp("updated_at").defaultTo(knex.fn.now());
 
     // เพิ่ม Index สำหรับคอลัมน์ที่ใช้ค้นหาบ่อย
+    table.index(["email"], "idx_users_email"); // Index สำหรับ email
   });
 }
 

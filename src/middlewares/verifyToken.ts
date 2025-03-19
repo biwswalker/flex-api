@@ -18,7 +18,7 @@ export const verifyToken = (req: any, res: any, next: any) => {
   try {
     // ตรวจสอบ Token โดยใช้ Secret Key ของคุณ
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET_KEY!);
-    req.body = decoded; // เก็บข้อมูลผู้ใช้ที่ได้จาก Token ใน req.user
+    req.body = { ...req.body, ...decoded }; // เก็บข้อมูลผู้ใช้ที่ได้จาก Token ใน req.user
     next(); // ถ้า Token ถูกต้อง จะไปต่อยัง controller
   } catch (error: any) {
     return res.status(401).send({
