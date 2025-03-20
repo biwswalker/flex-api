@@ -2,7 +2,7 @@ const User = function () {};
 const TABLE = "users";
 import dbConnection, { dbTransaction } from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
-import { decryptAES256 } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
+import { decryption } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
 import { generateAccessToken } from "../utils/jwtUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน
 import bcrypt from "bcrypt";
@@ -21,7 +21,7 @@ User.createUser = async (req: any, result: Result) => {
     const imageUrl = await uploadFile(uploadfile, TABLE);
 
     // // 🔹 ถอดรหัสรหัสผ่าน (AES-256)
-    const decryptedPassword = decryptAES256(password);
+    const decryptedPassword = decryption(password);
 
     // // 🔹 แฮชรหัสผ่านก่อนบันทึกลง DB
     const hashedPassword = await hashPassword(decryptedPassword);
@@ -44,7 +44,7 @@ User.createUser = async (req: any, result: Result) => {
       })
       .returning("*");
 
-    transaction.commit() // ***ต้องใส่เสมอหากใช้ transaction
+    transaction.commit(); // ***ต้องใส่เสมอหากใช้ transaction
     result({
       success: true,
       code: 200,
@@ -58,27 +58,29 @@ User.createUser = async (req: any, result: Result) => {
       },
     });
   } catch (error: any) {
-    transaction.rollback(error) // ***ต้องใส่เสมอหากใช้ transaction เพื่อคืนค่ากลับตามเดิม
-    result({
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: error,
-    }, true);
-    throw new Error(error);
+    transaction.rollback(error); // ***ต้องใส่เสมอหากใช้ transaction เพื่อคืนค่ากลับตามเดิม
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   } finally {
-    database.destroy()
+    database.destroy();
   }
 };
 
-User.getUser = async (req: any, result: any) => {
-  const db = dbConnection()
+User.getUser = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { email, role, company_ids, name } = req.query;
 
     // ตรวจสอบสิทธิ์การเข้าถึง API
     if (!["OWNER", "ADMIN"].includes(role)) {
-      return result(null, {
+      return result({
         success: false,
         code: 403,
         message: "ท่านไม่มีสิทธิการเข้าถึง",
@@ -111,25 +113,27 @@ User.getUser = async (req: any, result: any) => {
     // ดึงข้อมูลจากฐานข้อมูล
     const users = await query;
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "รายการผู้ใช้สำเร็จ",
       data: users,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.getUserById = async (req: any, result: any) => {
-  const db = dbConnection()
+User.getUserById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
 
@@ -148,7 +152,7 @@ User.getUserById = async (req: any, result: any) => {
       .first();
 
     if (!user) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบผู้ใช้",
@@ -173,25 +177,27 @@ User.getUserById = async (req: any, result: any) => {
         db.raw(`? || c.image_url as image_url`, [url]) // ✅ ใช้ `||` สำหรับ PostgreSQL
       );
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ดึงข้อมูลผู้ใช้สำเร็จ",
       data: { user, companies },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.updateUserById = async (req: any, result: any) => {
-  const db = dbConnection()
+User.updateUserById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
     const { name, email, role, company_id } = req.body;
@@ -207,7 +213,7 @@ User.updateUserById = async (req: any, result: any) => {
       .returning("*");
 
     if (!updatedUser) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบผู้ใช้",
@@ -220,25 +226,27 @@ User.updateUserById = async (req: any, result: any) => {
       company_id,
     });
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "อัพเดทข้อมูลผู้ใช้สำเร็จ",
       data: updatedUser,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.deleteUserById = async (req: any, result: any) => {
-  const db = dbConnection()
+User.deleteUserById = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.params;
 
@@ -246,7 +254,7 @@ User.deleteUserById = async (req: any, result: any) => {
     const deletedUser = await db("users").where("id", id).del().returning("*");
 
     if (!deletedUser) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบผู้ใช้",
@@ -257,61 +265,72 @@ User.deleteUserById = async (req: any, result: any) => {
     // ลบข้อมูลบริษัทที่เกี่ยวข้อง
     await db("user_company").where("user_id", id).del();
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ลบข้อมูลผู้ใช้สำเร็จ",
       data: deletedUser,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
 User.login = async (req: any, result: Result) => {
-  const database = await dbConnection();
+  const database = dbConnection();
   try {
     const { password } = req.headers;
     const { email } = req.body;
 
     if (!email || !password) {
-      return result({
-        success: false,
-        code: 400,
-        message: "กรุณากรอกอีเมลและรหัสผ่าน",
-        data: null,
-      }, true);
+      return result(
+        {
+          success: false,
+          code: 400,
+          message: "กรุณากรอกอีเมลและรหัสผ่าน",
+          data: null,
+        },
+        true
+      );
     }
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
     const user = await database("users").where({ email }).first();
     if (!user) {
-      return result({
-        success: false,
-        code: 401,
-        message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
-        data: null,
-      }, true);
+      return result(
+        {
+          success: false,
+          code: 401,
+          message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
+          data: null,
+        },
+        true
+      );
     }
 
     // ถอดรหัส AES-256 ของรหัสผ่านที่รับมา
-    const decryptedPassword = decryptAES256(password);
+    const decryptedPassword = decryption(password);
 
     // ตรวจสอบรหัสผ่านกับ hash ที่เก็บในฐานข้อมูล
     const isMatch = await bcrypt.compare(decryptedPassword, user.password);
     if (!isMatch) {
-      return result({
-        success: false,
-        code: 401,
-        message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
-        data: null,
-      }, true);
+      return result(
+        {
+          success: false,
+          code: 401,
+          message: "ไม่สามารถเข้าสู่ระบบได้ เนื่องจากอีเมลหรือรหัสผ่านผิด",
+          data: null,
+        },
+        true
+      );
     }
 
     // ดึงข้อมูลบริษัทที่ผู้ใช้มีสิทธิ์เข้าถึง
@@ -355,27 +374,29 @@ User.login = async (req: any, result: Result) => {
       },
     });
   } catch (error: any) {
-    result({
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: error,
-    }, true);
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   } finally {
-    database.destroy()
+    database.destroy();
   }
 };
 
-User.forgotPassword = async (req: any, result: any) => {
-  const db = dbConnection()
+User.forgotPassword = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { email } = req.body;
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
     const user = await db("users").where({ email }).first();
     if (!user) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบอีเมลนี้ในระบบ",
@@ -417,32 +438,34 @@ User.forgotPassword = async (req: any, result: any) => {
     // ส่งอีเมล
     await transporter.sendMail(mailOptions);
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "OTP สำหรับเปลี่ยนรหัสผ่านถูกส่งไปยังอีเมลของท่าน",
       data: null,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.resetPassword = async (req: any, result: any) => {
-  const db = dbConnection()
+User.resetPassword = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { email, otp, ref, password } = req.body;
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
     const user = await db("users").where({ email }).first();
     if (!user) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบอีเมลนี้ในระบบ",
@@ -456,7 +479,7 @@ User.resetPassword = async (req: any, result: any) => {
       .first();
 
     if (!otpRecord) {
-      return result(null, {
+      return result({
         success: false,
         code: 400,
         message: "OTP หรือ Reference ไม่ถูกต้อง",
@@ -465,7 +488,7 @@ User.resetPassword = async (req: any, result: any) => {
     }
 
     // ถอดรหัสรหัสผ่านใหม่ (AES-256)
-    const decryptedPassword = decryptAES256(password);
+    const decryptedPassword = decryption(password);
 
     // แฮชรหัสผ่านใหม่
     const hashedPassword = await hashPassword(decryptedPassword);
@@ -478,32 +501,34 @@ User.resetPassword = async (req: any, result: any) => {
     // ลบ OTP หลังจากใช้งาน
     // await db("otp").where({ id: otpRecord.id }).del();
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "เปลี่ยนรหัสผ่านสำเร็จ",
       data: null,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.verify = async (req: any, result: any) => {
-  const db = dbConnection()
+User.verify = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { email, otp, ref } = req.body;
 
     // ค้นหาผู้ใช้จากฐานข้อมูล
     const user = await db("users").where({ email }).first();
     if (!user) {
-      return result(null, {
+      return result({
         success: false,
         code: 404,
         message: "ไม่พบอีเมลนี้ในระบบ",
@@ -517,7 +542,7 @@ User.verify = async (req: any, result: any) => {
       .first();
 
     if (!otpRecord) {
-      return result(null, {
+      return result({
         success: false,
         code: 400,
         message: "OTP หรือ Reference ไม่ถูกต้อง",
@@ -528,25 +553,27 @@ User.verify = async (req: any, result: any) => {
     // ลบ OTP หลังจากใช้งาน
     // await db("otp").where({ id: otpRecord.id }).del();
 
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "ยืนยัน OTP สำเร็จ",
       data: null,
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.me = async (req: any, result: any) => {
-  const db = dbConnection()
+User.me = async (req: any, result: Result) => {
+  const db = dbConnection();
   try {
     const { id } = req.body;
     // ✅ ดึงข้อมูลผู้ใช้จากฐานข้อมูล
@@ -564,7 +591,7 @@ User.me = async (req: any, result: any) => {
       .first();
 
     if (!user) {
-      return result.status(400).json({
+      return result({
         success: false,
         code: 400,
         message: "ไม่สามารถดูข้อมูลผู้ใช้ในระบบได้ เนื่องจากเกิดข้อผิดพลาด",
@@ -592,38 +619,49 @@ User.me = async (req: any, result: any) => {
       );
 
     // ✅ ส่งข้อมูลกลับ
-    return result(null, {
+    return result({
       success: true,
       code: 200,
       message: "รายการผู้ใช้สำเร็จ",
       data: { user, companies },
     });
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 
-User.logout = async (req: any, result: any) => {
+User.logout = async (req: any, result: Result) => {
   try {
     const { password } = req.headers;
     const { email } = req.body;
 
-    result(null, true);
-    // }
+    return result(
+      {
+        success: true,
+        code: 200,
+        message: "ออกจากระบบสำเร็จ",
+        data: null,
+      },
+      true
+    );
   } catch (error: any) {
-    return result(error, {
-      success: false,
-      code: 500,
-      message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
-      data: null,
-    });
-    throw new Error(error);
+    return result(
+      {
+        success: false,
+        code: 500,
+        message: "เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่อีกครั้ง",
+        data: error.message,
+      },
+      true
+    );
   }
 };
 

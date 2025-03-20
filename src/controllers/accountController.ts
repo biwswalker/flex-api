@@ -1,8 +1,8 @@
-import Project from "../models/Project";
+import Account from "../models/Account";
 
 // Controller
-export const createProject = (req: any, res: any) => {
-  Project.createProject(req, (data, error) => {
+export const createAccount = (req: any, res: any) => {
+  Account.createAccount(req, (data, error) => {
     if(error) {
       // Boolean for error handlering
     }
@@ -10,8 +10,8 @@ export const createProject = (req: any, res: any) => {
   });
 };
 
-export const getProject = (req: any, res: any) => {
-  Project.getProject(req, (data, error) => {
+export const getAccount = (req: any, res: any) => {
+  Account.getAccount(req, (data, error) => {
     if(error) {
       // Boolean for error handlering
     }
@@ -19,8 +19,8 @@ export const getProject = (req: any, res: any) => {
   });
 };
 
-export const getProjectById = (req: any, res: any) => {
-  Project.getProjectById(req, (data, error) => {
+export const getAccountById = (req: any, res: any) => {
+  Account.getAccountById(req, (data, error) => {
     if(error) {
       // Boolean for error handlering
     }
@@ -28,8 +28,8 @@ export const getProjectById = (req: any, res: any) => {
   });
 };
 
-export const updateProjectById = (req: any, res: any) => {
-  Project.updateProjectById(req, (data, error) => {
+export const updateAccountById = (req: any, res: any) => {
+  Account.updateAccountById(req, (data, error) => {
     if(error) {
       // Boolean for error handlering
     }
@@ -37,8 +37,8 @@ export const updateProjectById = (req: any, res: any) => {
   });
 };
 
-export const deleteProjectById = (req: any, res: any) => {
-  Project.deleteProjectById(req, (data, error) => {
+export const deleteAccountById = (req: any, res: any) => {
+  Account.deleteAccountById(req, (data, error) => {
     if(error) {
       // Boolean for error handlering
     }
