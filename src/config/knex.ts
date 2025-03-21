@@ -1,7 +1,8 @@
 import { knex, type Knex } from "knex";
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "..", "..", ".env") });
 
 const config: Knex.Config = {
   client: "pg",
@@ -17,16 +18,20 @@ const config: Knex.Config = {
     propagateCreateError: false,
   },
   migrations: {
-    directory: "./migrations",
+    directory: path.join(__dirname, "migrations"),
+    extension: "ts",
   },
   seeds: {
-    directory: "./seeds",
+    directory: path.join(__dirname, "seeds"),
+    extension: "ts",
   },
 };
 
+export default config;
+
 let db: Knex | null = null;
 
-function dbConnection() {
+export function dbConnection() {
   if (db) {
     db.destroy();
   }
@@ -34,12 +39,16 @@ function dbConnection() {
   return db;
 }
 
-export default dbConnection;
-
 export async function dbTransaction() {
   const database = dbConnection();
   const transaction = await database.transaction();
   return { transaction, database };
+}
+
+export async function databaseMigration() {
+  const databaes = dbConnection()
+  await databaes.migrate.latest()
+  console.log('✅ Database migration successfully!.')
 }
 
 export async function testConnection() {

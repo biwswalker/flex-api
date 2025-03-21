@@ -1,6 +1,6 @@
 const User = function () {};
 const TABLE = "users";
-import dbConnection, { dbTransaction } from "@config/knex";
+import { dbConnection, dbTransaction } from "@config/knex";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
 import { decryption } from "../utils/cryptoUtils"; // นำเข้าไฟล์ถอดรหัส
 import { hashPassword } from "../utils/bcryptUtils"; // นำเข้าไฟล์แฮชรหัสผ่าน

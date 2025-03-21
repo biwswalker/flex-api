@@ -1,7 +1,7 @@
 const Company = function () {};
 const TABLE = "company";
 import { uploadFile } from "../services/uploadFile"; // นำเข้าฟังก์ชัน uploadFile
-import dbConnection from "@config/knex";
+import { dbConnection } from "@config/knex";
 const url = process.env.API_UPLOAD;
 
 // Model
