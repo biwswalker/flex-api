@@ -1,6 +1,6 @@
 const Account = function () {};
 const TABLE = "accounts";
-import dbConnection from "@config/knex";
+import { dbConnection } from "@config/knex";
 
 Account.createAccount = async (req: any, result: Result) => {
   const db = dbConnection();

@@ -8,6 +8,7 @@
     "dev": "nodemon",
     "build": "tsc && tsc-alias",
     "build:docker": "docker buildx build --platform linux/amd64 -t biwswalker/flex-api:latest --push .",
+    "migrate:latest": "npx knex migrate:latest --knexfile=./src/config/knex.ts",
     "postinstall": "patch-package"
   },
   "repository": {
